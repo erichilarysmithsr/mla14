@@ -1,0 +1,12 @@
+Copyright (c) 2014 Andrew Goldstone
+
+Materials for "Modernism's Limits: Patterns of Exclusion in Scholarly
+Reading," Modern Language Association, Chicago, January 10, 2014.
+
+These slides and the accompanying code are my intellectual work; if you
+use any part of them, please attribute them as such.
+
+The list of stopwords in mlaib2014/modeling_stoplist.txt is modified
+from a list compiled by Andrew Goldstone and Ted Underwood for another
+project and available at http://hdl.handle.net/2142/45709. It is CC-BY
+Andrew Goldstone and Ted Underwood, 2013.

@@ -1,0 +1,259 @@
+```{r setup,include=FALSE,cache=FALSE}
+opts_chunk$set(echo=F,warning=F,prompt=F,comment="",
+               autodep=T,cache=T,dev="tikz",
+               fig.width=4,fig.height=2.5,size ='footnotesize',
+               cache.extra=file.info("mlaib2014/explore.R")$mtime,
+               dev.args=list(pointsize=12))
+options(width=70)
+options(tikzDefaultEngine="xetex")
+library(ggplot2)
+library(xtable)
+dep_auto()
+```
+
+```{r analysis,include=F}
+source("mlaib2014/explore.R")
+b <- explore_main(working_dir="mlaib2014",model_dir="jstor_model/k16")
+```
+
+```{r utils,include=F}
+pct_fmt <- function (prec) {
+    function (x) {
+        str_c(round(x * 100,prec), "\\%")
+    }
+}
+```
+
+# Who counts?
+
+
+> If we set today's canon of nineteenth-century British novels at two hundred novels (which is a very high figure), they would still be only about *0.5 percent* of all published novels.
+>
+> And the other 99.5 percent?
+>
+> \cite[207]{moretti:slaughterhouse}
+
+# "*Twenty thousand?*" Hah!
+
+
+![Relevance? Books in Print hits for 1999 US fiction hardcovers](media/books-in-print.png)
+
+# Questions of method
+
+
+> The literary scholar of the twenty-first century can no longer be content 
+> with anecdotal evidence, with random "things" gathered from a few, even
+> "representative," texts.
+>
+> The study of literature should be approached not simply as an
+> examination of seminal works but as an examination of an aggregated
+> ecosystem or "economy" of texts.
+>
+> \cite[chap.\ 2, 4]{jockers:macroanalysis}
+
+# The imperative to include
+
+1. In the classroom: the opening of the canon
+2. In scholarship: historicism ("*all* of literary history")
+3. In culture: the transformation of taste
+
+
+# Readers
+
+> A space outside the school, where the canon is selected: the market.
+>
+> Clues are...the recognizable origin of the "information cascade"
+> that decides the shape of the market. A little device---with enormous
+> effects.
+>
+> The course selected by European audiences (Conan Doyle, the canon) is
+> only *one* of the many coexisting branches.
+>
+> (Moretti, 209, 218, 227)
+
+
+# Consumption: the hard problem
+
+- Modernist studies as case study
+
+
+# The impasse of contemporary modernist studies
+
+- the historical period (1890--1945)?
+- the aesthetics of high modernism (formal rupture or innovation)?
+- a set canon (Eliot, Joyce, Woolf, Pound)?
+
+
+# The dream of expansion
+
+> Were one seeking a single word to sum up transformations in modernist 
+> literary scholarship over the past decade or two, one could do worse than light on *expansion*.
+>
+> \cite[737]{mao-walkowitz:new}
+
+
+# But who is read?
+
+> the ongoing dominance of a core version of modernism,
+> relentlessly unmodified by the arrival of previously noncanonical
+> authors from a variety of national and social locations...even when
+> most scholars agree that these new noncanonical authors *should* alter
+> the core meaning of modernism!
+>
+> \cite[744]{hayot:against}
+
+
+# The data
+
+- `r b$total_entries` English-language hits (excluding 10 website entries) for "modernism" in the MLA International Bibliography at the end of 2013. 
+- Drop `r b$total_entries - nrow(b$mlaib)` pre-`r strftime(min(b$mlaib$date),'%Y')` and post-`r strftime(max(b$mlaib$date),'%Y')` items
+
+```{r pubtype-table, results="asis"}
+pubtypes <- as.data.frame(table(b$mlaib$pubtype))
+names(pubtypes) <- c("Item type","``modernism'' hits")
+print(xtable(pubtypes,digits=0,comment=F),include.rownames=F)
+```
+
+
+# People
+
+- `r length(unique(b$subjects_authors$term))` names of people in the subject headings (mostly writers). The top 10 overall:
+
+```{r top-authors-table, results="asis"}
+top_authors <- b$auth_totals[order(b$auth_totals$count,decreasing=T)[1:10],] 
+names(top_authors) <- c("Subject heading","Weighted frequency")
+
+print(xtable(top_authors,digits=0,comment=F),include.rownames=F)
+```
+
+
+# Other subjects: a topic model of `r nrow(b$m$doc_topics)` modernism articles
+
+
+```{r topics,results="asis"}
+top_totals <- colSums(b$m$doc_topics[,-ncol(b$m$doc_topics)])
+top_totals <- top_totals / sum(top_totals)
+tops <- data.frame(
+    keys=gsub("^....","",topic_names(b$m$wkf_blei,name_format='%03d %s',
+                                     n=6)),
+    wts=sprintf("%.0f%%",top_totals * 100))
+tops <- tops[order(top_totals,decreasing=T),]
+names(tops) <- c("topic key words","words in topic")
+print(xtable(tops,align="llr"),include.rownames=F)
+```
+
+# People in modernist studies
+
+
+```{r top-authors-plot,fig.cap="Frequency of subject headings over time, smoothed"}
+top_auths <- unique(b$subjects_authors$term[b$subjects_authors$rank < 4])
+top_auths_series <- b$subjects_authors[b$subjects_authors$term %in% top_auths,]
+# trim to last names only
+top_auths_series$term <- gsub(",.*$","",top_auths_series$term)
+top_auths_series$date <- as.Date(top_auths_series$date)
+top_auths_plot <- ggplot(top_auths_series,aes(date,freq,group=term,
+                                              color=term,linetype=term))
+top_auths_plot <- top_auths_plot + geom_smooth(method="loess",se=F)
+top_auths_plot <- top_auths_plot + scale_color_brewer(type="qual") +
+    theme(legend.key.size=unit(12,"pt"))
+top_auths_plot <- top_auths_plot + scale_y_continuous(labels=pct_fmt(1)) +
+    xlab("Publication date") + ylab("\\% of weighted subjects")
+top_auths_plot
+```
+
+
+# Brands (1)
+
+\small
+
+```{r top-authors-listing, results="asis"}
+top_auths_list <- ddply(b$subjects_authors,"date",
+    function (d) {
+        data.frame(date=strftime(d$date[1],'%Y'),
+                   top_auth=paste(gsub(",.*$","",d$term[order(d$rank)[1:7]]),
+                                  collapse=", "))
+    })
+names(top_auths_list) <- c("date","top authors as subjects")
+print(xtable(top_auths_list,align="lll"),include.rownames=F)
+```
+
+\normalsize
+
+# Brands (2)
+
+\small
+
+```{r top-authors-titles, results="asis"}
+n_terms <- 8
+b$tc_tym_auths <- b$tc_tym[rownames(b$tc_tym) %in% b$last_names,]
+top_auths_titles <- apply(as.matrix(b$tc_tym_auths),2,
+                          function (s) {
+                              paste(rownames(b$tc_tym_auths)[
+                                      order(s,decreasing=T)[1:n_terms]
+                                    ],collapse=", ")
+                          })
+top_auths_titles <- data.frame(date=substr(names(top_auths_titles),1,4),
+                               words=top_auths_titles,
+                               stringsAsFactors=F)
+names(top_auths_titles) <- c("date","top author names in titles")
+print(xtable(top_auths_titles,align="lll"),include.rownames=F)
+```
+
+\normalsize
+
+# An "economy" of few winners (1)
+
+```{r author-hit-dist, message=F,fig.cap="Distribution of author-subject hit counts"}
+p1 <- ggplot(b$auth_totals,aes(count))
+p1 <- p1 + geom_histogram()
+p1 + xlab("total weighted hit count") + ylab("no. of authors")
+```
+
+
+# An "economy" of few winners (2)
+
+```{r author-hit-cdf, fig.cap="Cumulative sums of author-subject headings"}
+cum <- data.frame(cumulative=cumsum(sort(b$auth_totals$count)) /
+                  sum(b$auth_totals$count))
+cum$index <- seq_along(cum$cumulative)
+p2 <- ggplot(cum,aes(index,cumulative,group=1)) + geom_line()
+p2 <- p2 + scale_y_continuous(labels=pct_fmt(0)) +
+    xlab("no. of authors (in order of symbolic wealth)") +
+    ylab("\\% of weighted headings")
+p2
+```
+
+
+# Possibly a *little* more diverse over time...
+
+```{r author-gini, fig.cap="Inequality in the biyearly authors-as-subjects distribution"}
+g_series <- series_ineq(b$subjects_authors)
+g_series$date <- as.Date(g_series$date)
+p <- ggplot(g_series,aes(date,g,group=1))
+p + geom_line() + ylab("Gini coefficient") + ylim(0,1)
+```
+
+
+# Appreciation
+
+> Consequently, critics must manoeuvre strategically between following the communis opinio and adding their own distinctive yet positively rated contributions to the discourse, in order to obtain a positive reputation for themselves.
+>
+> \cite[264]{verboord:classification}
+
+
+# Beyond inclusion: premises
+
+## Reception
+
+1. We should study reception.
+2. There are a lot of readers.
+3. Most of them aren't us.
+
+## Mediation
+
+1. The literary world is not flat.
+2. Its hierarchies are produced and reproduced by mediators.
+3. There are a lot of mediations.
+4. Some of them are us (acting through institutions).
+
+
