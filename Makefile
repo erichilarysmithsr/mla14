@@ -1,5 +1,5 @@
 
-Rfiles := ../mlaib2014/explore.R
+Rfiles := mlaib2014/explore.R
 
 slides.md: slides.Rmd $(Rfiles)
 	R -e 'library(knitr); knit("$<")'
