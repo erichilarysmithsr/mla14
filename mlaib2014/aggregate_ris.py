@@ -13,7 +13,12 @@ to determine the set of field codes and once to output the CSV.
 import re
 import csv
 
+# used to concatenate multiple occurrences of the same field in a record
+# (typically: KW)
 MULTI_DELIM = ";;"
+
+# used to match record lines. There is normally a space after '-' but not
+# for the special 'ER' (end record) key, so we'll strip it out later.
 RIS_PAT = re.compile('(\w\w)  -(.*)$')
 
 class RISException(Exception):
@@ -39,6 +44,12 @@ def ris_fields(f):
     return fields
 
 def ris2csv(f):
+    # We'll hold all the file data in memory and return it. Fine for 500 
+    # records at a time (normal maximum EBSCO export size).
+    #
+    # TODO modify to pass in CSVWriter so we can stream out the data one entry 
+    # at a time instead.
+
     entries = []
     data = dict()
     
@@ -64,15 +75,19 @@ def ris2csv(f):
 
 
 def main(files,output):
+    # first, get the set of possible field keys to use as column headers
     fields = set()
     for filename in files:
         with open(filename) as f:
             fields = fields.union(ris_fields(f))
 
+    # let's be conservative about quoting, as there seem to be few rules
+    # about what goes in RIS data
     headers = sorted(fields)
     w = csv.DictWriter(output,headers,quoting=csv.QUOTE_ALL)
     w.writeheader()
             
+    # now we can write the data
     for filename in files:
         with open(filename) as f:
             w.writerows(ris2csv(f))
